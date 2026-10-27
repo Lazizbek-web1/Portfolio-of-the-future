@@ -123,9 +123,10 @@ h2 { font-size: clamp(36px, 5.4vw, 72px); font-weight: 300; letter-spacing: -.03
 .reveal.in { opacity: 1; transform: none; }
 
 /* ---------- 00 hero ---------- */
-#hero { display: flex; flex-direction: column; justify-content: flex-end; padding-top: 110px; padding-bottom: 11vh; pointer-events: none; }
-.hero-in { max-width: 920px; pointer-events: auto; }
-#hero h1 { font-size: clamp(54px, min(9vw, 14.5vh), 152px); font-weight: 300; line-height: .92; letter-spacing: -.05em; }
+#hero { display: flex; flex-direction: column; justify-content: center; padding-top: 96px; padding-bottom: 14vh; pointer-events: none; }
+.hero-in { pointer-events: auto; }
+/* same voice as the contact headline: thin, tight, one gradient word */
+#hero h1 { font-size: clamp(50px, min(11vw, 17vh), 190px); font-weight: 300; line-height: .95; letter-spacing: -.05em; }
 #hero h1 .hello { display: block; font-size: max(20px, .23em); font-weight: 400; letter-spacing: -.02em; line-height: 1.2; color: var(--soft); margin-bottom: .5em; }
 #hero h1 .line { display: block; }
 
@@ -426,7 +427,7 @@ dialog#briefing::backdrop { background: rgba(2,3,8,.65); backdrop-filter: blur(4
   .stub-cta { grid-column: 1 / -1; }
   nav .links { display: none; }
   .chapter { padding: 110px var(--pad); }
-  #hero { padding-bottom: 17vh; }
+  #hero { justify-content: flex-end; padding-bottom: 17vh; }
   .hero-hint { display: none; }
   .sec-head, .split, .museum-split, .contact-grid { grid-template-columns: 1fr; gap: 28px; }
   .split-head { position: static; }

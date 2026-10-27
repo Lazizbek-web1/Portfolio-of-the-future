@@ -277,6 +277,10 @@ const ticks = $('#ch-ticks');
 ticks.innerHTML = chapters.map((c, i) => `<a href="#${c.id}" aria-label="${CHAPTERS[i]}"></a>`).join('');
 const tickEls = $$('a', ticks), navLinks = $$('nav .links a');
 const veil = $('#veil'), nav = $('#nav'), fill = $('#route-fill'), stops = $$('.stop');
+const layoutTop = el => { let y = 0; for (; el; el = el.offsetParent) y += el.offsetTop; return y; };
+// the route fills up to this line on screen: 60% down, but never so low that stop two
+// is already lit when the Origin section first reaches the top
+const fillLine = () => Math.min(innerHeight * .6, layoutTop(route) - layoutTop($('#origin')) + (stops[1] ? stops[1].offsetTop : 0) - 30);
 let lastCh = -1;
 
 function onScroll() {
@@ -300,9 +304,9 @@ function onScroll() {
   }
 
   const r = route.getBoundingClientRect();
-  const p = Math.min(1, Math.max(0, (H * .6 - r.top) / r.height));
+  const p = Math.min(1, Math.max(0, (fillLine() - r.top) / r.height));
   fill.style.transform = `scaleY(${p})`;
-  stops.forEach(s => s.classList.toggle('lit', (s.offsetTop + 10) / route.offsetHeight <= p + .01));
+  stops.forEach(s => s.classList.toggle('lit', p > 0 && (s.offsetTop + 10) / route.offsetHeight <= p + .01));
 }
 addEventListener('scroll', onScroll, { passive: true });
 addEventListener('resize', onScroll);
@@ -340,31 +344,46 @@ document.addEventListener('click', e => {
 
 // Space glides to the next stop of the story (Shift+Space goes back). Long sections are paged through first.
 const STOPS = ['#hero', '#boarding', '#origin', '#toolkit', '#work', '#gallery', '#contact'].map(s => $(s));
+// where Space can land: each section, plus every stop on the origin route
+function spaceTargets() {
+  // layout positions, so reveal transforms that haven't played yet don't shift the targets
+  const H = innerHeight, abs = layoutTop, line = fillLine();
+  const ys = [];
+  STOPS.forEach(el => {
+    const h = el.offsetHeight;
+    if (el.id !== 'origin') return ys.push(abs(el) - (h < H * .85 ? (H - h) / 2 : 0));
+    // a stop lights up once it crosses the fill line; land so exactly one more is lit each time
+    const at = st => Math.max(abs(el), abs(st) - line + 100);
+    if (abs(el) < at(stops[0]) - H * .15) ys.push(abs(el)); // phones: the heading sits well above stop one
+    stops.forEach(st => ys.push(at(st)));
+  });
+  ys.sort((p, q) => p - q);
+  // landings a few pixels apart feel like a stutter: keep the later one
+  return ys.filter((y, i) => i === ys.length - 1 || ys[i + 1] - y > H * .1);
+}
+// Space is ours unless the visitor is tabbing around (then it should press the focused button)
+let tabbing = false;
+addEventListener('keydown', e => { if (e.key === 'Tab') tabbing = true; }, true);
+addEventListener('pointerdown', () => { tabbing = false; }, true);
 addEventListener('keydown', e => {
   if (e.code !== 'Space' || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
   if ((space && space.pilot) || brief.open) return;
   const t = e.target;
   if (t.closest('input, textarea, select, [contenteditable]')) return;
-  // keyboard users who tabbed onto a button still get the normal Space activation
-  if (t.closest('button, a') && t.matches(':focus-visible')) return;
+  if (tabbing && t.closest('button, a')) return;
   e.preventDefault();
-  if (t.blur && t !== document.body) t.blur();
-  const H = innerHeight, y = scrollY;
-  const tops = STOPS.map(el => scrollY + el.getBoundingClientRect().top);
-  // the section holding the middle of the screen is where the visitor is
-  let cur = 0;
-  tops.forEach((top, i) => { if (top <= y + H / 2) cur = i; });
+  // blur so the keyup can't click whatever was focused (e.g. the ticket after the briefing closes)
+  if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+  const H = innerHeight, max = document.documentElement.scrollHeight - H;
+  // measure from where an in-flight glide is heading, so quick presses keep advancing
+  const y = lenis && lenis.isScrolling ? lenis.targetScroll : scrollY;
+  const ys = spaceTargets().map(v => Math.max(0, Math.min(v, max)));
   if (!e.shiftKey) {
-    const end = tops[cur + 1] ?? document.documentElement.scrollHeight;
-    if (end - (y + H) > H * .45) return scrollToY(y + H * .8);
-    if (cur + 1 < STOPS.length) scrollToEl(STOPS[cur + 1]);
-    else scrollToY(end);
+    const next = ys.find(v => v > y + 10) ?? max;
+    scrollToY(next - y > H * 1.25 ? y + H * .8 : next);
   } else {
-    // mid-way through a section, go back to its start first (paging if it is long)
-    const target = y - tops[cur] > H * .2 ? cur : cur - 1;
-    if (target < 0) return scrollToY(0);
-    if (y - tops[target] > H * 1.3) return scrollToY(y - H * .8);
-    scrollToEl(STOPS[target]);
+    const prev = [...ys].reverse().find(v => v < y - 10) ?? 0;
+    scrollToY(y - prev > H * 1.25 ? y - H * .8 : prev);
   }
 });
 
